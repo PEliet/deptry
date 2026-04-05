@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from deptry.exceptions import PyprojectFileNotFoundError
+from deptry.reporters import GithubReporter, JSONReporter, TextReporter
 from deptry.scanners.single_project import SingleProjectScanner
+from deptry.scanners.uv_workspace import UvWorkspaceScanner
 from deptry.utils import load_pyproject_toml
 
 if TYPE_CHECKING:
@@ -25,9 +28,27 @@ class Core:
     def run(self) -> None:
         uv_workspace_config = self._get_uv_workspace_config()
         if uv_workspace_config is None:
-            SingleProjectScanner(self.config).run()
+            violations = SingleProjectScanner(self.config).scan()
         else:
-            print(uv_workspace_config)  # noqa: T201
+            violations = UvWorkspaceScanner(self.config, uv_workspace_config).scan()
+
+        TextReporter(
+            violations, enforce_posix_paths=self.config.enforce_posix_paths, use_ansi=not self.config.no_ansi
+        ).report()
+
+        if self.config.json_output:
+            JSONReporter(
+                violations, enforce_posix_paths=self.config.enforce_posix_paths, json_output=self.config.json_output
+            ).report()
+
+        if self.config.github_output:
+            GithubReporter(
+                violations,
+                enforce_posix_paths=self.config.enforce_posix_paths,
+                warning_ids=self.config.github_warning_errors,
+            ).report()
+
+        sys.exit(bool(violations))
 
     def _get_uv_workspace_config(self) -> UvWorkspaceConfig | None:
         try:

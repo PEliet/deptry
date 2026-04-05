@@ -40,11 +40,20 @@ class DEP001MissingDependenciesFinder(ViolationsFinder):
 
     def _is_missing(self, module: Module) -> bool:
         if any([
-            module.package is not None,
             module.is_provided_by_dependency,
             module.is_provided_by_dev_dependency,
             module.local_module,
         ]):
+            return False
+
+        # A module whose package is not found in the environment at all is missing.
+        # A module whose name matches a uv workspace sibling's top-level module is also missing —
+        # it is available in the env only because uv installs all workspace members, but each
+        # member must still explicitly declare siblings it imports.
+        package_not_found = module.package is None
+        undeclared_workspace_sibling = module.name in self.workspace_sibling_module_names
+
+        if not package_not_found and not undeclared_workspace_sibling:
             return False
 
         if module.name in self.ignored_modules:

@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from deptry.dependency_getter.builder import DependencyGetterBuilder
 from deptry.imports.extract import get_imported_modules_from_list_of_files
 from deptry.module import ModuleBuilder, ModuleLocations
-from deptry.reporters import GithubReporter, JSONReporter, TextReporter
 from deptry.scanners.base import ProjectScannerBase
 from deptry.violations.finder import find_violations
+
+if TYPE_CHECKING:
+    from deptry.violations import Violation
 
 
 @dataclass
 class SingleProjectScanner(ProjectScannerBase):
-    def run(self) -> None:
+    def scan(self) -> list[Violation]:
         self._log_config()
 
         dependency_getter = DependencyGetterBuilder(
@@ -47,27 +50,11 @@ class SingleProjectScanner(ProjectScannerBase):
             for module, locations in get_imported_modules_from_list_of_files(python_files).items()
         ]
 
-        violations = find_violations(
+        return find_violations(
             imported_modules_with_locations,
             dependencies_extract.dependencies,
             self.config.ignore,
             self.config.per_rule_ignores,
             standard_library_modules,
+            self.config.workspace_sibling_module_names,
         )
-        TextReporter(
-            violations, enforce_posix_paths=self.config.enforce_posix_paths, use_ansi=not self.config.no_ansi
-        ).report()
-
-        if self.config.json_output:
-            JSONReporter(
-                violations, enforce_posix_paths=self.config.enforce_posix_paths, json_output=self.config.json_output
-            ).report()
-
-        if self.config.github_output:
-            GithubReporter(
-                violations,
-                enforce_posix_paths=self.config.enforce_posix_paths,
-                warning_ids=self.config.github_warning_errors,
-            ).report()
-
-        self._exit(violations)

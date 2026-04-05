@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from deptry.exceptions import InvalidPyprojectTOMLOptionsError
@@ -59,7 +59,7 @@ def read_configuration_from_pyproject_toml(ctx: click.Context, _param: click.Par
     return value
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     root: tuple[Path, ...]
     config: Path
@@ -82,3 +82,8 @@ class Config:
     enforce_posix_paths: bool
     github_output: bool
     github_warning_errors: tuple[str, ...]
+    workspace_sibling_module_names: frozenset[str] = frozenset()
+
+    def with_overrides(self, overrides: dict[str, Any]) -> Config:
+        """Return a new Config with the given fields overridden."""
+        return replace(self, **overrides)

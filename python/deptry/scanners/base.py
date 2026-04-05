@@ -22,7 +22,7 @@ class ProjectScannerBase(ABC):
     config: Config
 
     @abstractmethod
-    def run(self) -> None: ...
+    def scan(self) -> list[Violation]: ...
 
     def _find_python_files(self) -> list[Path]:
         logging.debug("Collecting Python files to scan...")
@@ -97,7 +97,3 @@ class ProjectScannerBase(ABC):
             for dependency in dependencies_extract.dev_dependencies:
                 logging.debug(dependency)
             logging.debug("")
-
-    @staticmethod
-    def _exit(violations: list[Violation]) -> None:
-        sys.exit(bool(violations))
