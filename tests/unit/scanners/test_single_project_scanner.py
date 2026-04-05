@@ -8,11 +8,12 @@ from unittest import mock
 
 import pytest
 
-from deptry.core import Core
+from deptry.config import Config
 from deptry.dependency import Dependency
 from deptry.dependency_getter.base import DependenciesExtract
 from deptry.imports.location import Location
 from deptry.module import Module
+from deptry.scanners import SingleProjectScanner
 from deptry.violations import (
     DEP001MissingDependencyViolation,
     DEP002UnusedDependencyViolation,
@@ -20,6 +21,34 @@ from deptry.violations import (
     DEP004MisplacedDevDependencyViolation,
 )
 from tests.utils import create_files, run_within_dir
+
+
+def _make_config(**overrides: Any) -> Config:
+    defaults: dict[str, Any] = {
+        "root": (Path(),),
+        "config": Path("pyproject.toml"),
+        "no_ansi": False,
+        "per_rule_ignores": {},
+        "ignore": (),
+        "exclude": (),
+        "extend_exclude": (),
+        "using_default_exclude": True,
+        "ignore_notebooks": False,
+        "requirements_files": (),
+        "requirements_files_dev": (),
+        "known_first_party": (),
+        "json_output": "",
+        "package_module_name_map": {},
+        "optional_dependencies_dev_groups": (),
+        "non_dev_dependency_groups": (),
+        "using_default_requirements_files": True,
+        "experimental_namespace_package": False,
+        "github_output": False,
+        "github_warning_errors": (),
+        "enforce_posix_paths": False,
+    }
+    defaults.update(overrides)
+    return Config(**defaults)
 
 
 @pytest.mark.parametrize(
@@ -109,35 +138,19 @@ def test__get_local_modules(
         ])
 
         assert (
-            Core(
-                root=(tmp_path / root_suffix,),
-                config=Path("pyproject.toml"),
-                no_ansi=False,
-                per_rule_ignores={},
-                ignore=(),
-                exclude=(),
-                extend_exclude=(),
-                using_default_exclude=True,
-                ignore_notebooks=False,
-                requirements_files=(),
-                requirements_files_dev=(),
-                known_first_party=known_first_party,
-                json_output="",
-                package_module_name_map={},
-                optional_dependencies_dev_groups=(),
-                non_dev_dependency_groups=(),
-                using_default_requirements_files=True,
-                experimental_namespace_package=experimental_namespace_package,
-                github_output=False,
-                github_warning_errors=(),
-                enforce_posix_paths=False,
+            SingleProjectScanner(
+                _make_config(
+                    root=(tmp_path / root_suffix,),
+                    known_first_party=known_first_party,
+                    experimental_namespace_package=experimental_namespace_package,
+                )
             )._get_local_modules()
             == expected
         )
 
 
 def test__get_stdlib_packages_with_stdlib_module_names() -> None:
-    assert Core._get_standard_library_modules() == sys.stdlib_module_names
+    assert SingleProjectScanner._get_standard_library_modules() == sys.stdlib_module_names
 
 
 @pytest.mark.parametrize(
@@ -153,7 +166,7 @@ def test__get_stdlib_packages_with_stdlib_module_names() -> None:
 def test__get_stdlib_packages_with_stdlib_module_names_future_version(version_info: tuple[int | str, ...]) -> None:
     """Test that future versions of Python not yet tested on the CI will also work."""
     with mock.patch("sys.version_info", (sys.version_info[0], sys.version_info[1] + 1, 0)):
-        assert Core._get_standard_library_modules() == sys.stdlib_module_names
+        assert SingleProjectScanner._get_standard_library_modules() == sys.stdlib_module_names
 
 
 @mock.patch("deptry.reporters.TextReporter.report")
@@ -163,29 +176,7 @@ def test_text_reporter_only(
     mock_github_reporter_report: Any, mock_json_reporter_report: Any, mock_text_reporter_report: Any
 ) -> None:
     with pytest.raises(SystemExit):
-        Core(
-            root=(Path(),),
-            config=Path("pyproject.toml"),
-            no_ansi=False,
-            per_rule_ignores={},
-            ignore=(),
-            exclude=(),
-            extend_exclude=(),
-            using_default_exclude=True,
-            ignore_notebooks=False,
-            requirements_files=(),
-            requirements_files_dev=(),
-            known_first_party=(),
-            json_output="",
-            package_module_name_map={},
-            optional_dependencies_dev_groups=(),
-            non_dev_dependency_groups=(),
-            using_default_requirements_files=True,
-            experimental_namespace_package=False,
-            github_output=False,
-            github_warning_errors=(),
-            enforce_posix_paths=False,
-        ).run()
+        SingleProjectScanner(_make_config()).run()
 
     mock_text_reporter_report.assert_called()
     mock_json_reporter_report.assert_not_called()
@@ -199,29 +190,7 @@ def test_all_reporters(
     mock_github_reporter_report: Any, mock_json_reporter_report: Any, mock_text_reporter_report: Any
 ) -> None:
     with pytest.raises(SystemExit):
-        Core(
-            root=(Path(),),
-            config=Path("pyproject.toml"),
-            no_ansi=False,
-            per_rule_ignores={},
-            ignore=(),
-            exclude=(),
-            extend_exclude=(),
-            using_default_exclude=True,
-            ignore_notebooks=False,
-            requirements_files=(),
-            requirements_files_dev=(),
-            known_first_party=(),
-            json_output="foo.json",
-            package_module_name_map={},
-            optional_dependencies_dev_groups=(),
-            non_dev_dependency_groups=(),
-            using_default_requirements_files=True,
-            experimental_namespace_package=False,
-            github_output=True,
-            github_warning_errors=(),
-            enforce_posix_paths=False,
-        ).run()
+        SingleProjectScanner(_make_config(json_output="foo.json", github_output=True)).run()
 
     mock_text_reporter_report.assert_called()
     mock_json_reporter_report.assert_called()
@@ -237,7 +206,7 @@ def test__exit_with_violations() -> None:
     ]
 
     with pytest.raises(SystemExit) as e:
-        Core._exit(violations)
+        SingleProjectScanner._exit(violations)
 
     assert e.type is SystemExit
     assert e.value.code == 1
@@ -245,7 +214,7 @@ def test__exit_with_violations() -> None:
 
 def test__exit_without_violations() -> None:
     with pytest.raises(SystemExit) as e:
-        Core._exit([])
+        SingleProjectScanner._exit([])
 
     assert e.type is SystemExit
     assert e.value.code == 0
@@ -288,6 +257,6 @@ def test__log_dependencies(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.DEBUG):
-        Core._log_dependencies(DependenciesExtract(dependencies, dev_dependencies))
+        SingleProjectScanner._log_dependencies(DependenciesExtract(dependencies, dev_dependencies))
 
     assert caplog.messages == expected_logs
