@@ -8,13 +8,14 @@ from deptry.scanners.single_project import SingleProjectScanner
 from deptry.utils import load_pyproject_toml
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from deptry.config import Config
 
 
 @dataclass
 class UvWorkspaceConfig:
-    members: tuple[str, ...]
-    exclude: tuple[str, ...]
+    members: tuple[Path, ...]
 
 
 @dataclass
@@ -38,7 +39,15 @@ class Core:
         if not workspace:
             return None
 
-        return UvWorkspaceConfig(
-            members=tuple(workspace.get("members", [])),
-            exclude=tuple(workspace.get("exclude", [])),
+        root = self.config.config.parent
+        exclude_globs: list[str] = workspace.get("exclude", [])
+        excluded = {path for glob_pattern in exclude_globs for path in root.glob(glob_pattern)}
+
+        members = tuple(
+            path
+            for glob_pattern in workspace.get("members", [])
+            for path in sorted(root.glob(glob_pattern))
+            if path not in excluded
         )
+
+        return UvWorkspaceConfig(members=members)
