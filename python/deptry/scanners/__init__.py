@@ -1,6 +1,6 @@
 from __future__ import annotations
 
 from deptry.scanners.base import ProjectScannerBase
-from deptry.scanners.single_project import SingleProjectScanner
+from deptry.scanners.project import ProjectScanner
 
-__all__ = ("ProjectScannerBase", "SingleProjectScanner")
+__all__ = ("ProjectScanner", "ProjectScannerBase")

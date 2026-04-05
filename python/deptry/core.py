@@ -4,9 +4,10 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from deptry.dependency_getter.builder import DependencyGetterBuilder
 from deptry.exceptions import PyprojectFileNotFoundError
 from deptry.reporters import GithubReporter, JSONReporter, TextReporter
-from deptry.scanners.single_project import SingleProjectScanner
+from deptry.scanners.project import ProjectScanner
 from deptry.scanners.uv_workspace import UvWorkspaceScanner
 from deptry.utils import load_pyproject_toml
 
@@ -28,7 +29,16 @@ class Core:
     def run(self) -> None:
         uv_workspace_config = self._get_uv_workspace_config()
         if uv_workspace_config is None:
-            violations = SingleProjectScanner(self.config).scan()
+            dependency_getter = DependencyGetterBuilder(
+                self.config.config,
+                self.config.package_module_name_map,
+                self.config.optional_dependencies_dev_groups,
+                self.config.non_dev_dependency_groups,
+                self.config.requirements_files,
+                self.config.using_default_requirements_files,
+                self.config.requirements_files_dev,
+            ).build()
+            violations = ProjectScanner(self.config, dependency_getter.get()).scan()
         else:
             violations = UvWorkspaceScanner(self.config, uv_workspace_config).scan()
 

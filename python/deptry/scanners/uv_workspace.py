@@ -7,7 +7,9 @@ from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from deptry.scanners.single_project import SingleProjectScanner
+from deptry.dependency_getter.base import DependenciesExtract
+from deptry.dependency_getter.pep621.uv import UvDependencyGetter
+from deptry.scanners.project import ProjectScanner
 from deptry.utils import load_pyproject_toml
 
 if TYPE_CHECKING:
@@ -32,6 +34,8 @@ class UvWorkspaceScanner:
         for package, modules in package_module_name_map.items():
             logging.info("  %s -> %s", package, ", ".join(modules))
 
+        root_extract = self._get_root_extract()
+
         violations: list[Violation] = []
         for member in members:
             logging.info("Scanning workspace member: %s", member)
@@ -52,8 +56,29 @@ class UvWorkspaceScanner:
                 "root": (member,),
                 "workspace_sibling_module_names": sibling_module_names,
             })
-            violations += SingleProjectScanner(member_config).scan()
+            member_extract = UvDependencyGetter(
+                member_config.config,
+                member_config.package_module_name_map,
+                member_config.optional_dependencies_dev_groups,
+                member_config.non_dev_dependency_groups,
+            ).get()
+            merged_extract = DependenciesExtract(
+                dependencies=member_extract.dependencies,
+                dev_dependencies=[*member_extract.dev_dependencies, *root_extract.dev_dependencies],
+            )
+            violations += ProjectScanner(member_config, merged_extract).scan()
         return violations
+
+    def _get_root_extract(self) -> DependenciesExtract:
+        """Retrieve dev dependencies declared at the workspace root (e.g. [tool.uv.dev-dependencies],
+        [dependency-groups]). These are installed into the shared environment and should be visible
+        to all member scans as dev dependencies."""
+        return UvDependencyGetter(
+            self.config.config,
+            self.config.package_module_name_map,
+            self.config.optional_dependencies_dev_groups,
+            self.config.non_dev_dependency_groups,
+        ).get()
 
     def _build_package_module_name_map(self, members: tuple[Path, ...]) -> dict[str, tuple[str, ...]]:
         """
