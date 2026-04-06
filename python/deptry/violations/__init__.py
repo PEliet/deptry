@@ -13,6 +13,8 @@ from deptry.violations.dep005_standard_library.finder import DEP005StandardLibra
 from deptry.violations.dep005_standard_library.violation import DEP005StandardLibraryDependencyViolation
 from deptry.violations.dep006_missing_workspace.finder import DEP006MissingWorkspaceDependenciesFinder
 from deptry.violations.dep006_missing_workspace.violation import DEP006MissingWorkspaceDependencyViolation
+from deptry.violations.dep007_workspace_transitive.finder import DEP007WorkspaceTransitiveDependenciesFinder
+from deptry.violations.dep007_workspace_transitive.violation import DEP007WorkspaceTransitiveDependencyViolation
 
 __all__ = (
     "DEP001MissingDependenciesFinder",
@@ -27,6 +29,8 @@ __all__ = (
     "DEP005StandardLibraryDependencyViolation",
     "DEP006MissingWorkspaceDependenciesFinder",
     "DEP006MissingWorkspaceDependencyViolation",
+    "DEP007WorkspaceTransitiveDependenciesFinder",
+    "DEP007WorkspaceTransitiveDependencyViolation",
     "Violation",
     "ViolationsFinder",
 )

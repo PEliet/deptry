@@ -36,6 +36,20 @@ class UvWorkspaceScanner:
 
         root_extract = self._get_root_extract()
 
+        # Pass 1: collect declared dependencies for every member upfront, so that each member
+        # scan can receive the union of its siblings' direct dependencies.
+        member_extracts: dict[Path, DependenciesExtract] = {}
+        for member in members:
+            member_config_path = member / "pyproject.toml"
+            member_extract = UvDependencyGetter(
+                member_config_path,
+                self.config.package_module_name_map,
+                self.config.optional_dependencies_dev_groups,
+                self.config.non_dev_dependency_groups,
+            ).get()
+            member_extracts[member] = member_extract
+
+        # Pass 2: scan each member with full sibling context.
         violations: list[Violation] = []
         for member in members:
             logging.info("Scanning workspace member: %s", member)
@@ -51,20 +65,21 @@ class UvWorkspaceScanner:
                 )
                 - member_module_names
             )
+            sibling_dep_names = frozenset(
+                dep.name
+                for other_member, extract in member_extracts.items()
+                if other_member != member
+                for dep in (*extract.dependencies, *extract.dev_dependencies)
+            )
             member_config = self.config.with_overrides({
                 "config": member / "pyproject.toml",
                 "root": (member,),
                 "workspace_sibling_module_names": sibling_module_names,
+                "workspace_sibling_dep_names": sibling_dep_names,
             })
-            member_extract = UvDependencyGetter(
-                member_config.config,
-                member_config.package_module_name_map,
-                member_config.optional_dependencies_dev_groups,
-                member_config.non_dev_dependency_groups,
-            ).get()
             merged_extract = DependenciesExtract(
-                dependencies=member_extract.dependencies,
-                dev_dependencies=[*member_extract.dev_dependencies, *root_extract.dev_dependencies],
+                dependencies=member_extracts[member].dependencies,
+                dev_dependencies=[*member_extracts[member].dev_dependencies, *root_extract.dev_dependencies],
             )
             violations += ProjectScanner(member_config, merged_extract).scan()
         return violations

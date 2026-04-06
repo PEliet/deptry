@@ -46,4 +46,5 @@ class ProjectScanner(ProjectScannerBase):
             self.config.per_rule_ignores,
             standard_library_modules,
             self.config.workspace_sibling_module_names,
+            self.config.workspace_sibling_dep_names,
         )

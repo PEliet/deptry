@@ -35,6 +35,7 @@ class ViolationsFinder(ABC):
     standard_library_modules: frozenset[str]
     ignored_modules: tuple[str, ...] = ()
     workspace_sibling_module_names: frozenset[str] = frozenset()
+    workspace_sibling_dep_names: frozenset[str] = frozenset()
 
     @abstractmethod
     def find(self) -> list[Violation]:

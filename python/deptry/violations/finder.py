@@ -11,6 +11,7 @@ from deptry.violations import (
     DEP004MisplacedDevDependenciesFinder,
     DEP005StandardLibraryDependenciesFinder,
     DEP006MissingWorkspaceDependenciesFinder,
+    DEP007WorkspaceTransitiveDependenciesFinder,
 )
 
 if TYPE_CHECKING:
@@ -28,6 +29,7 @@ _VIOLATIONS_FINDERS: tuple[type[ViolationsFinder], ...] = (
     DEP004MisplacedDevDependenciesFinder,
     DEP005StandardLibraryDependenciesFinder,
     DEP006MissingWorkspaceDependenciesFinder,
+    DEP007WorkspaceTransitiveDependenciesFinder,
 )
 
 
@@ -38,6 +40,7 @@ def find_violations(
     per_rule_ignores: Mapping[str, tuple[str, ...]],
     standard_library_modules: frozenset[str],
     workspace_sibling_module_names: frozenset[str] = frozenset(),
+    workspace_sibling_dep_names: frozenset[str] = frozenset(),
 ) -> list[Violation]:
     violations = []
 
@@ -50,6 +53,7 @@ def find_violations(
                     ignored_modules=per_rule_ignores.get(violation_finder.violation.error_code, ()),
                     standard_library_modules=standard_library_modules,
                     workspace_sibling_module_names=workspace_sibling_module_names,
+                    workspace_sibling_dep_names=workspace_sibling_dep_names,
                 ).find()
             )
     return _get_sorted_violations(_filter_inline_ignored_violations(violations))

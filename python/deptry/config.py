@@ -83,6 +83,7 @@ class Config:
     github_output: bool
     github_warning_errors: tuple[str, ...]
     workspace_sibling_module_names: frozenset[str] = frozenset()
+    workspace_sibling_dep_names: frozenset[str] = frozenset()
 
     def with_overrides(self, overrides: dict[str, Any]) -> Config:
         """Return a new Config with the given fields overridden."""
