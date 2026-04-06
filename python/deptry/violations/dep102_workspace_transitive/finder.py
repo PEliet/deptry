@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from deptry.violations.base import ViolationsFinder
-from deptry.violations.dep007_workspace_transitive.violation import DEP007WorkspaceTransitiveDependencyViolation
+from deptry.violations.dep102_workspace_transitive.violation import DEP102WorkspaceTransitiveDependencyViolation
 
 if TYPE_CHECKING:
     from deptry.module import Module
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class DEP007WorkspaceTransitiveDependenciesFinder(ViolationsFinder):
+class DEP102WorkspaceTransitiveDependenciesFinder(ViolationsFinder):
     """
     Given a list of imported modules, determine which ones are available in the workspace
     environment only because another workspace member declares them as a direct dependency,
@@ -24,7 +24,7 @@ class DEP007WorkspaceTransitiveDependenciesFinder(ViolationsFinder):
     it is solely present in the shared venv due to a sibling's declaration.
     """
 
-    violation = DEP007WorkspaceTransitiveDependencyViolation
+    violation = DEP102WorkspaceTransitiveDependencyViolation
 
     def find(self) -> list[Violation]:
         logging.debug("\nScanning for workspace-propagated dependencies...")

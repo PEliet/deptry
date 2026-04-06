@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from deptry.violations.base import ViolationsFinder
-from deptry.violations.dep006_missing_workspace.violation import DEP006MissingWorkspaceDependencyViolation
+from deptry.violations.dep101_missing_workspace.violation import DEP101MissingWorkspaceDependencyViolation
 
 if TYPE_CHECKING:
     from deptry.module import Module
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class DEP006MissingWorkspaceDependenciesFinder(ViolationsFinder):
+class DEP101MissingWorkspaceDependenciesFinder(ViolationsFinder):
     """
     Given a list of imported modules, determine which ones are uv workspace siblings that are not
     declared as dependencies of the current workspace member.
@@ -22,7 +22,7 @@ class DEP006MissingWorkspaceDependenciesFinder(ViolationsFinder):
     but each member must still explicitly declare the siblings it imports.
     """
 
-    violation = DEP006MissingWorkspaceDependencyViolation
+    violation = DEP101MissingWorkspaceDependencyViolation
 
     def find(self) -> list[Violation]:
         logging.debug("\nScanning for missing workspace dependencies...")

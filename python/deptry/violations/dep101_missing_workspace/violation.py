@@ -7,8 +7,8 @@ from deptry.violations.base import Violation
 
 
 @dataclass
-class DEP006MissingWorkspaceDependencyViolation(Violation):
-    error_code: ClassVar[str] = "DEP006"
+class DEP101MissingWorkspaceDependencyViolation(Violation):
+    error_code: ClassVar[str] = "DEP101"
     error_template: ClassVar[str] = "'{name}' imported but it is a uv workspace sibling not declared as a dependency"
 
     def get_error_message(self) -> str:

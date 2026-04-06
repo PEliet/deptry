@@ -7,8 +7,8 @@ from deptry.violations.base import Violation
 
 
 @dataclass
-class DEP007WorkspaceTransitiveDependencyViolation(Violation):
-    error_code: ClassVar[str] = "DEP007"
+class DEP102WorkspaceTransitiveDependencyViolation(Violation):
+    error_code: ClassVar[str] = "DEP102"
     error_template: ClassVar[str] = (
         "'{name}' imported but is not declared as a dependency, it is available only because another workspace member declares it"
     )
