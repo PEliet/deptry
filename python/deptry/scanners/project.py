@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 @dataclass
 class ProjectScanner(ProjectScannerBase):
     dependencies_extract: DependenciesExtract
+    workspace_sibling_module_names: frozenset[str] = frozenset()
+    workspace_sibling_dep_names: frozenset[str] = frozenset()
 
     def scan(self) -> list[Violation]:
         self._log_config()
@@ -45,6 +47,6 @@ class ProjectScanner(ProjectScannerBase):
             self.config.ignore,
             self.config.per_rule_ignores,
             standard_library_modules,
-            self.config.workspace_sibling_module_names,
-            self.config.workspace_sibling_dep_names,
+            self.workspace_sibling_module_names,
+            self.workspace_sibling_dep_names,
         )

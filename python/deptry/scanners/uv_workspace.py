@@ -60,10 +60,6 @@ class UvWorkspaceScanner:
             sibling_module_names, sibling_dep_names = self._get_sibling_context(
                 member, package_module_name_map, member_module_names, member_dependencies_extracts
             )
-            member_config = member_base_configs[member].with_overrides({
-                "workspace_sibling_module_names": sibling_module_names,
-                "workspace_sibling_dep_names": sibling_dep_names,
-            })
             merged_extract = DependenciesExtract(
                 dependencies=member_dependencies_extracts[member].dependencies,
                 dev_dependencies=[
@@ -71,7 +67,12 @@ class UvWorkspaceScanner:
                     *root_extract.dev_dependencies,
                 ],
             )
-            violations += ProjectScanner(member_config, merged_extract).scan()
+            violations += ProjectScanner(
+                member_base_configs[member],
+                merged_extract,
+                sibling_module_names,
+                sibling_dep_names,
+            ).scan()
         return violations
 
     @staticmethod
