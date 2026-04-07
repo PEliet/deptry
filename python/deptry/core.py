@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -80,5 +81,8 @@ class Core:
             for path in sorted(root.glob(glob_pattern))
             if path not in excluded
         )
+        logging.debug("Found %d uv workspace member(s):", len(members))
+        for member in members:
+            logging.debug("  - %s", member)
 
         return UvWorkspaceConfig(members=members)
