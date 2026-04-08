@@ -13,7 +13,7 @@ nav:
   - Configuration: configuration.md
   - Rules and Violations: rules-violations.md
   - Supported dependency managers: supported-dependency-managers.md
-  - Changelog: CHANGELOG.md
+  - Changelog: changelog.md
   - Contributing: contributing.md
 
 plugins:
@@ -70,3 +70,6 @@ validation:
   absolute_links: warn
   unrecognized_links: warn
   anchors: warn
+
+extra_css:
+  - stylesheets/extra.css

@@ -33,8 +33,8 @@ build:
 
 # Test if documentation can be built without warnings or errors.
 docs-test:
-    uv run mkdocs build -s
+    uv run zensical build --strict
 
 # Build and serve the documentation.
 docs:
-    uv run mkdocs serve
+    uv run zensical serve
