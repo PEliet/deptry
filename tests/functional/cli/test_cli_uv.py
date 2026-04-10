@@ -18,10 +18,6 @@ def test_cli_with_uv(uv_venv_factory: UvVenvFactory) -> None:
 
         assert result.returncode == 1
         assert result.stderr == snapshot("""\
-Assuming the corresponding module name of package 'isort' is 'isort'. Install the package or configure a package_module_name_map entry to override this behaviour.
-Assuming the corresponding module name of package 'requests' is 'requests'. Install the package or configure a package_module_name_map entry to override this behaviour.
-Assuming the corresponding module name of package 'certifi' is 'certifi'. Install the package or configure a package_module_name_map entry to override this behaviour.
-Assuming the corresponding module name of package 'idna' is 'idna'. Install the package or configure a package_module_name_map entry to override this behaviour.
 Scanning 2 files...
 
 pyproject.toml: DEP002 'isort' defined as a dependency but not used in the codebase

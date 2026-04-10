@@ -18,15 +18,13 @@ def test_cli_with_uv_workspace(uv_venv_factory: UvVenvFactory) -> None:
 
         assert result.returncode == 1
         assert result.stderr == snapshot("""\
-Assuming the corresponding module name of package 'pandas' is 'pandas'. Install the package or configure a package_module_name_map entry to override this behaviour.
-Assuming the corresponding module name of package 'foo' is 'foo'. Install the package or configure a package_module_name_map entry to override this behaviour.
 Scanning 1 file...
 Scanning 1 file...
 Scanning 1 file...
 
 packages/bar/pyproject.toml: DEP002 'pandas' defined as a dependency but not used in the codebase
-packages/baz/baz/__init__.py:2:1: DEP001 'bar2' imported but missing from the dependency definitions
-packages/foo/foo/__init__.py:1:8: DEP001 'pandas' imported but missing from the dependency definitions
+packages/baz/baz/__init__.py:2:1: DEP101 'bar2' imported but it is a uv workspace sibling not declared as a dependency
+packages/foo/foo/__init__.py:1:8: DEP102 'pandas' imported but is not declared as a dependency, it is available only because another workspace member declares it
 Found 3 dependency issues.
 
 For more information, see the documentation: https://deptry.com/
