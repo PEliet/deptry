@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import site
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, distribution
@@ -26,8 +27,10 @@ class UvWorkspaceScanner:
     uv_workspace_config: UvWorkspaceConfig
 
     def scan(self) -> list[Violation]:
+        root_path = self.config.config.parent
+        all_members = (root_path, *self.uv_workspace_config.members)
 
-        package_module_name_map = self._build_workspace_package_module_name_map(self.uv_workspace_config.members)
+        package_module_name_map = self._build_workspace_package_module_name_map(all_members)
         logging.debug("Resolved package-to-module map from editable installs:")
         for package, modules in package_module_name_map.items():
             logging.debug("  %s -> %s", package, ", ".join(modules))
@@ -38,7 +41,7 @@ class UvWorkspaceScanner:
         # scan can receive the union of its siblings' direct dependencies.
         member_base_configs: dict[Path, Config] = {}
         member_dependencies_extracts: dict[Path, DependenciesExtract] = {}
-        for member in self.uv_workspace_config.members:
+        for member in all_members:
             member_base_config = self._build_member_base_config(member)
             member_base_configs[member] = member_base_config
             member_dependencies_extract = UvDependencyGetter(
@@ -51,7 +54,7 @@ class UvWorkspaceScanner:
 
         # Pass 2: scan each member with full sibling context.
         violations: list[Violation] = []
-        for member in self.uv_workspace_config.members:
+        for member in all_members:
             logging.debug("Scanning workspace member: %s", member)
             member_package_name = self._get_package_name(member)
             member_module_names = (
@@ -60,13 +63,19 @@ class UvWorkspaceScanner:
             sibling_module_names, sibling_dep_names = self._get_sibling_context(
                 member, package_module_name_map, member_module_names, member_dependencies_extracts
             )
-            merged_extract = DependenciesExtract(
-                dependencies=member_dependencies_extracts[member].dependencies,
-                dev_dependencies=[
-                    *member_dependencies_extracts[member].dev_dependencies,
-                    *root_extract.dev_dependencies,
-                ],
-            )
+
+            # Root already has its own dev-deps from the getter; non-root members get root dev-deps merged in.
+            if member == root_path:
+                merged_extract = member_dependencies_extracts[member]
+            else:
+                merged_extract = DependenciesExtract(
+                    dependencies=member_dependencies_extracts[member].dependencies,
+                    dev_dependencies=[
+                        *member_dependencies_extracts[member].dev_dependencies,
+                        *root_extract.dev_dependencies,
+                    ],
+                )
+
             violations += ProjectScanner(
                 member_base_configs[member],
                 merged_extract,
@@ -94,7 +103,18 @@ class UvWorkspaceScanner:
         return sibling_module_names, sibling_dep_names
 
     def _build_member_base_config(self, member: Path) -> Config:
-        """Build a Config for a workspace member, applying any [tool.deptry] from its pyproject.toml."""
+        """Build a Config for a workspace member, applying any [tool.deptry] from its pyproject.toml.
+
+        For the workspace root, member directories are excluded to avoid scanning their files twice.
+        For other members, any [tool.deptry] overrides from their pyproject.toml are applied."""
+        if member == self.config.config.parent:
+            # Exclude member directories so their files are only scanned during their own member scan.
+            root_path = self.config.config.parent
+            member_excludes = tuple(re.escape(str(m.relative_to(root_path))) for m in self.uv_workspace_config.members)
+            return self.config.with_overrides({
+                "extend_exclude": (*self.config.extend_exclude, *member_excludes),
+            })
+
         try:
             data = load_pyproject_toml(member / "pyproject.toml")
         except FileNotFoundError:

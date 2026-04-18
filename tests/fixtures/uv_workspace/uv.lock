@@ -373,4 +373,10 @@ wheels = [
 [[package]]
 name = "uv-workspace"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
+dependencies = [
+    { name = "foo" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "foo", editable = "packages/foo" }]

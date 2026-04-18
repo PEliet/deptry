@@ -76,6 +76,10 @@ dev-dependencies = [
 ]
 ```
 
+_deptry_ also supports [uv workspaces](https://docs.astral.sh/uv/concepts/workspaces/). When a
+`[tool.uv.workspace]` section is detected, each workspace member is scanned individually with workspace-aware rules.
+See the [uv Workspaces](uv-workspaces.md) page for details.
+
 ### Poetry
 
 Until [version 2.0](https://python-poetry.org/blog/announcing-poetry-2.0.0/), Poetry did not support PEP 621 syntax to
