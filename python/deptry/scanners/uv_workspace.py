@@ -30,77 +30,87 @@ class UvWorkspaceScanner:
         root_path = self.config.config.parent
         all_members = (root_path, *self.uv_workspace_config.members)
 
-        package_module_name_map = self._build_workspace_package_module_name_map(all_members)
-        logging.debug("Resolved package-to-module map from editable installs:")
-        for package, modules in package_module_name_map.items():
-            logging.debug("  %s -> %s", package, ", ".join(modules))
+        package_module_map = self._build_workspace_package_module_name_map(all_members)
+        member_configs, member_dependency_extracts = self._collect_member_configs_and_dependency_extracts(all_members)
+        all_workspace_modules = frozenset(m for modules in package_module_map.values() for m in modules)
 
-        root_extract = self._get_root_extract()
-
-        # Pass 1: collect declared dependencies for every member upfront, so that each member
-        # scan can receive the union of its siblings' direct dependencies.
-        member_base_configs: dict[Path, Config] = {}
-        member_dependencies_extracts: dict[Path, DependenciesExtract] = {}
-        for member in all_members:
-            member_base_config = self._build_member_base_config(member)
-            member_base_configs[member] = member_base_config
-            member_dependencies_extract = UvDependencyGetter(
-                member / "pyproject.toml",
-                member_base_config.package_module_name_map,
-                member_base_config.optional_dependencies_dev_groups,
-                member_base_config.non_dev_dependency_groups,
-            ).get()
-            member_dependencies_extracts[member] = member_dependencies_extract
-
-        # Pass 2: scan each member with full sibling context.
         violations: list[Violation] = []
         for member in all_members:
             logging.debug("Scanning workspace member: %s", member)
-            member_package_name = self._get_package_name(member)
-            member_module_names = (
-                frozenset(package_module_name_map.get(member_package_name, ())) if member_package_name else frozenset()
+            violations += self._scan_member(
+                member, member_configs[member], member_dependency_extracts, package_module_map, all_workspace_modules
             )
-            sibling_module_names, sibling_dep_names = self._get_sibling_context(
-                member, package_module_name_map, member_module_names, member_dependencies_extracts
-            )
-
-            # Root already has its own dev-deps from the getter; non-root members get root dev-deps merged in.
-            if member == root_path:
-                merged_extract = member_dependencies_extracts[member]
-            else:
-                merged_extract = DependenciesExtract(
-                    dependencies=member_dependencies_extracts[member].dependencies,
-                    dev_dependencies=[
-                        *member_dependencies_extracts[member].dev_dependencies,
-                        *root_extract.dev_dependencies,
-                    ],
-                )
-
-            violations += ProjectScanner(
-                member_base_configs[member],
-                merged_extract,
-                sibling_module_names,
-                sibling_dep_names,
-            ).scan()
         return violations
+
+    def _collect_member_configs_and_dependency_extracts(
+        self, all_members: tuple[Path, ...]
+    ) -> tuple[dict[Path, Config], dict[Path, DependenciesExtract]]:
+        """Build a Config and resolve dependencies for every workspace member."""
+        configs: dict[Path, Config] = {}
+        extracts: dict[Path, DependenciesExtract] = {}
+        for member in all_members:
+            config = self._build_member_base_config(member)
+            configs[member] = config
+            extracts[member] = UvDependencyGetter(
+                member / "pyproject.toml",
+                config.package_module_name_map,
+                config.optional_dependencies_dev_groups,
+                config.non_dev_dependency_groups,
+            ).get()
+        return configs, extracts
+
+    def _scan_member(
+        self,
+        member: Path,
+        config: Config,
+        member_dependency_extracts: dict[Path, DependenciesExtract],
+        package_module_map: dict[str, tuple[str, ...]],
+        all_workspace_modules: frozenset[str],
+    ) -> list[Violation]:
+        """Scan a single workspace member with full sibling context."""
+        extract = self._build_member_dependency_extract(member, member_dependency_extracts)
+
+        member_package_name = self._get_package_name(member)
+        member_modules = (
+            frozenset(package_module_map.get(member_package_name, ())) if member_package_name else frozenset()
+        )
+        sibling_modules, sibling_deps = self._get_sibling_context(
+            member, all_workspace_modules, member_modules, member_dependency_extracts
+        )
+
+        return ProjectScanner(config, extract, sibling_modules, sibling_deps).scan()
+
+    def _build_member_dependency_extract(
+        self, member: Path, member_dependency_extracts: dict[Path, DependenciesExtract]
+    ) -> DependenciesExtract:
+        """For non-root members, merge in the root's dev dependencies (they live in the shared environment)."""
+        root_path = self.config.config.parent
+        if member == root_path:
+            return member_dependency_extracts[member]
+        return DependenciesExtract(
+            dependencies=member_dependency_extracts[member].dependencies,
+            dev_dependencies=[
+                *member_dependency_extracts[member].dev_dependencies,
+                *member_dependency_extracts[root_path].dev_dependencies,
+            ],
+        )
 
     @staticmethod
     def _get_sibling_context(
         member: Path,
-        package_module_name_map: dict[str, tuple[str, ...]],
-        member_module_names: frozenset[str],
-        member_extracts: dict[Path, DependenciesExtract],
+        all_workspace_modules: frozenset[str],
+        member_modules: frozenset[str],
+        member_dependency_extracts: dict[Path, DependenciesExtract],
     ) -> tuple[frozenset[str], frozenset[str]]:
-        sibling_module_names = (
-            frozenset(m for modules in package_module_name_map.values() for m in modules) - member_module_names
-        )
-        sibling_dep_names = frozenset(
+        """Compute the module names and dependency names from all sibling members."""
+        sibling_modules = all_workspace_modules - member_modules
+        sibling_deps = frozenset(
             dep.name
-            for other_member, extract in member_extracts.items()
+            for other_member, extract in member_dependency_extracts.items()
             if other_member != member
             for dep in (*extract.dependencies, *extract.dev_dependencies)
         )
-        return sibling_module_names, sibling_dep_names
+        return sibling_modules, sibling_deps
 
     def _build_member_base_config(self, member: Path) -> Config:
         """Build a Config for a workspace member, applying any [tool.deptry] from its pyproject.toml.
@@ -125,17 +135,6 @@ class UvWorkspaceScanner:
             "config": member / "pyproject.toml",
             "root": (member,),
         })
-
-    def _get_root_extract(self) -> DependenciesExtract:
-        """Retrieve dev dependencies declared at the workspace root (e.g. [tool.uv.dev-dependencies],
-        [dependency-groups]). These are installed into the shared environment and should be visible
-        to all member scans as dev dependencies."""
-        return UvDependencyGetter(
-            self.config.config,
-            self.config.package_module_name_map,
-            self.config.optional_dependencies_dev_groups,
-            self.config.non_dev_dependency_groups,
-        ).get()
 
     def _build_workspace_package_module_name_map(self, members: tuple[Path, ...]) -> dict[str, tuple[str, ...]]:
         """

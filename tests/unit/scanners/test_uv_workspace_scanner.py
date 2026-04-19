@@ -96,22 +96,18 @@ def test__collect_top_level_modules(
 
 
 def test__get_sibling_context_excludes_own_modules() -> None:
-    members = {
+    member_extracts = {
         Path("packages/foo"): DependenciesExtract([Dependency("numpy", Path("packages/foo/pyproject.toml"))], []),
         Path("packages/bar"): DependenciesExtract([Dependency("pandas", Path("packages/bar/pyproject.toml"))], []),
     }
-    package_module_name_map: dict[str, tuple[str, ...]] = {
-        "foo": ("foo",),
-        "bar": ("bar2",),
-    }
-    # Scanning "foo": own modules are {"foo"}
-    member_module_names = frozenset({"foo"})
+    all_workspace_modules = frozenset({"foo", "bar2"})
+    member_modules = frozenset({"foo"})
 
     sibling_modules, sibling_deps = UvWorkspaceScanner._get_sibling_context(
         Path("packages/foo"),
-        package_module_name_map,
-        member_module_names,
-        members,
+        all_workspace_modules,
+        member_modules,
+        member_extracts,
     )
 
     assert sibling_modules == frozenset({"bar2"})
@@ -119,18 +115,16 @@ def test__get_sibling_context_excludes_own_modules() -> None:
 
 
 def test__get_sibling_context_includes_sibling_dev_dependencies() -> None:
-    members = {
+    member_extracts = {
         Path("packages/foo"): DependenciesExtract([], [Dependency("pytest", Path("packages/foo/pyproject.toml"))]),
         Path("packages/bar"): DependenciesExtract([Dependency("requests", Path("packages/bar/pyproject.toml"))], []),
     }
-    package_module_name_map: dict[str, tuple[str, ...]] = {}
-    member_module_names: frozenset[str] = frozenset()
 
     _sibling_modules, sibling_deps = UvWorkspaceScanner._get_sibling_context(
         Path("packages/bar"),
-        package_module_name_map,
-        member_module_names,
-        members,
+        frozenset(),
+        frozenset(),
+        member_extracts,
     )
 
     # "requests" belongs to bar itself, "pytest" belongs to foo — only foo's deps are siblings
@@ -138,17 +132,17 @@ def test__get_sibling_context_includes_sibling_dev_dependencies() -> None:
 
 
 def test__get_sibling_context_no_siblings() -> None:
-    members = {
+    member_extracts = {
         Path("packages/only"): DependenciesExtract([Dependency("requests", Path("packages/only/pyproject.toml"))], []),
     }
-    package_module_name_map: dict[str, tuple[str, ...]] = {"only": ("only",)}
-    member_module_names = frozenset({"only"})
+    all_workspace_modules = frozenset({"only"})
+    member_modules = frozenset({"only"})
 
     sibling_modules, sibling_deps = UvWorkspaceScanner._get_sibling_context(
         Path("packages/only"),
-        package_module_name_map,
-        member_module_names,
-        members,
+        all_workspace_modules,
+        member_modules,
+        member_extracts,
     )
 
     assert sibling_modules == frozenset()

@@ -260,7 +260,7 @@ bar = { workspace = true }
 ### Workspace transitive dependency (DEP102)
 
 A third-party package is imported without being declared as a dependency. It only resolves because another workspace
-member declares it — making it a transitive dependency within the workspace.
+member declares it, making it a transitive dependency within the workspace.
 
 #### Example
 
@@ -279,7 +279,7 @@ import pandas
 ```
 
 _deptry_ will report `pandas` as a workspace transitive dependency (DEP102), because `foo` imports it without declaring
-it — `pandas` is only available because `bar` declares it.
+it. `pandas` is only available because `bar` declares it.
 
 To fix the issue, `pandas` should be added to `foo`'s dependencies:
 
